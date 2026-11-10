@@ -8,17 +8,17 @@ from models.rate import RateLog
 DEFAULT_FALLBACK_RATES: Dict[str, float] = {
     "USD": 1.0,
     "EUR": 0.89,
-    "VES": 899.27,
-    "COP": 3240.00,
-    "ARS": 1540.00,
-    "BRL": 5.50,
-    "MXN": 18.50,
+    "VES": 45.50,
+    "COP": 4100.00,
+    "ARS": 1200.00,
+    "BRL": 5.60,
+    "MXN": 19.50,
 }
 
 COUNTRY_TO_CURRENCY: Dict[str, str] = {
+    "VE": "VES",
     "ES": "EUR",
     "US": "USD",
-    "VE": "VES",
     "CO": "COP",
     "AR": "ARS",
     "BR": "BRL",
@@ -35,10 +35,11 @@ COUNTRY_TO_CURRENCY: Dict[str, str] = {
 class CurrencyService:
     API_URL = "https://api.exchangerate-api.com/v4/latest/USD"
     TIMEOUT_SECONDS = 5
+    LOCAL_CURRENCY = "VES"
 
     @classmethod
     def get_currency_for_country(cls, country_code: str) -> str:
-        return COUNTRY_TO_CURRENCY.get(country_code.upper(), "EUR")
+        return COUNTRY_TO_CURRENCY.get((country_code or "").upper(), cls.LOCAL_CURRENCY)
 
     @classmethod
     def fetch_and_save_rates(cls) -> Tuple[Dict[str, Any], bool]:
@@ -79,8 +80,8 @@ class CurrencyService:
         return DEFAULT_FALLBACK_RATES, True
 
     @classmethod
-    def get_rate(cls, target_currency: str) -> Tuple[Decimal, bool]:
-        currency = target_currency.upper()
+    def get_rate(cls, target_currency: str = None) -> Tuple[Decimal, bool]:
+        currency = (target_currency or cls.LOCAL_CURRENCY).upper()
         rates, is_fallback = cls.fetch_and_save_rates()
         rate_val = rates.get(currency)
 
