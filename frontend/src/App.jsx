@@ -37,6 +37,7 @@ export default function App() {
   const [bookToDelete, setBookToDelete] = useState(null);
   const [logs, setLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [formError, setFormError] = useState(null);
 
   // Formulario
   const [formData, setFormData] = useState({
@@ -123,25 +124,28 @@ export default function App() {
   // Guardar (Crear / Actualizar)
   const handleSubmitForm = async (e) => {
     e.preventDefault();
+    setFormError(null);
     const costVal = parseFloat(formData.cost);
     const stockVal = parseInt(formData.stock, 10);
 
     if (isNaN(costVal) || costVal <= 0 || isNaN(stockVal) || stockVal < 0) {
       sound.error();
-      showToast('El costo debe ser > 0 y el inventario >= 0', 'warning');
+      const msg = 'El costo debe ser > 0 y el inventario >= 0';
+      setFormError(msg);
+      showToast(msg, 'warning');
       return;
     }
 
     setLoading(true);
     try {
       const payload = {
-        title: formData.title,
-        author: formData.author,
-        isbn: formData.isbn,
-        category: formData.category,
+        title: formData.title.trim(),
+        author: formData.author.trim(),
+        isbn: formData.isbn.trim(),
+        category: formData.category.trim(),
         cost_usd: costVal,
         stock_quantity: stockVal,
-        supplier_country: formData.supplier_country || 'ES',
+        supplier_country: (formData.supplier_country || 'ES').trim().toUpperCase(),
       };
 
       if (editingBook) {
@@ -155,10 +159,19 @@ export default function App() {
       sound.select();
       setIsFormOpen(false);
       setEditingBook(null);
+      setFormError(null);
       loadBooks(offset);
     } catch (err) {
       sound.error();
-      showToast(err.message || 'Error guardando libro', 'error');
+      let errorMsg = err.message || 'Error al guardar libro';
+      if (err.data && err.data.errors && typeof err.data.errors === 'object') {
+        const fieldErrors = Object.entries(err.data.errors)
+          .map(([f, m]) => `${f.toUpperCase()}: ${Array.isArray(m) ? m.join(', ') : m}`)
+          .join(' | ');
+        errorMsg = `${errorMsg} (${fieldErrors})`;
+      }
+      setFormError(errorMsg);
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -185,6 +198,7 @@ export default function App() {
 
   const openEdit = (b) => {
     setEditingBook(b);
+    setFormError(null);
     setFormData({
       title: b.title,
       author: b.author,
@@ -199,8 +213,8 @@ export default function App() {
 
   return (
     <div className="crt min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
-      {/* Contenedor de Notificaciones */}
-      <div id="toast-container" className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" />
+      {/* Contenedor de Notificaciones por encima de todos los modales */}
+      <div id="toast-container" className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none" />
 
       {/* Barra Superior */}
       <header className="border-b border-cyan-900/60 bg-slate-900/80 backdrop-blur px-6 py-4 flex flex-wrap items-center justify-between gap-4">
@@ -229,6 +243,7 @@ export default function App() {
           <button
             onClick={() => {
               setEditingBook(null);
+              setFormError(null);
               setFormData({ title: '', author: '', isbn: '', category: '', cost: '', stock: '', supplier_country: 'ES' });
               setIsFormOpen(true);
             }}
@@ -585,6 +600,13 @@ export default function App() {
               {editingBook ? 'EDITAR_REGISTRO' : 'NUEVO_LIBRO'}
             </h3>
 
+            {formError && (
+              <div className="mb-4 p-2.5 bg-rose-950/80 border border-rose-500 text-rose-300 rounded text-[11px] leading-tight">
+                <strong className="block font-bold">ERROR DE REGISTRO:</strong>
+                {formError}
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="text-slate-400 block mb-1">TÍTULO</label>
@@ -614,6 +636,7 @@ export default function App() {
                   <input
                     required
                     type="text"
+                    placeholder="978-0-7432-7356-5"
                     value={formData.isbn}
                     onChange={(e) => setFormData({ ...formData, isbn: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-700 p-2 rounded text-slate-200 focus:border-cyan-400 outline-none"

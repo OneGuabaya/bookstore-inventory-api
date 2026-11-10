@@ -34,8 +34,16 @@ export async function apiClient(endpoint, options = {}) {
       }
     }));
 
-    if (!response.ok) {
-      const errorMsg = data?.message || data?.error || `HTTP ${response.status}`;
+   if (!response.ok) {
+      let errorMsg = data?.message || data?.error || `Error HTTP ${response.status}`;
+
+      if (data?.errors && typeof data.errors === 'object') {
+        const details = Object.entries(data.errors)
+          .map(([field, errs]) => `${field.toUpperCase()}: ${Array.isArray(errs) ? errs.join(', ') : errs}`)
+          .join(' | ');
+        errorMsg = `${errorMsg} -> ${details}`;
+      }
+
       throw { status: response.status, message: errorMsg, data };
     }
 
