@@ -1,0 +1,8 @@
+﻿__pycache__/
+*.py[cod]
+*.class
+*.env
+.idea/
+.vscode/
+postgres_data/
+*.sqlite3
