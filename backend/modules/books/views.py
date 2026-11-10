@@ -229,7 +229,8 @@ class BookLowStockView(APIView):
                 )
 
 class BookCalculatePriceView(APIView):
-    MARGIN_PERCENTAGE = 40  # 40%
+    MARGIN_PERCENTAGE = 40
+    LOCAL_CURRENCY = "VES"
 
     def post(self, request, pk: int):
         book = BookRepository.get_by_id(pk)
@@ -250,7 +251,7 @@ class BookCalculatePriceView(APIView):
         target_currency = (
                 request.data.get("currency")
                 or request.query_params.get("currency")
-                or CurrencyService.get_currency_for_country(book.supplier_country)
+                or self.LOCAL_CURRENCY
         ).upper()
 
         try:
@@ -264,10 +265,11 @@ class BookCalculatePriceView(APIView):
             )
 
         cost_usd = Decimal(str(book.cost_usd))
-        cost_local = (cost_usd * exchange_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         margin_multiplier = Decimal("1") + (Decimal(str(self.MARGIN_PERCENTAGE)) / Decimal("100"))
-        selling_price_local = (cost_local * margin_multiplier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        cost_with_margin_usd = (cost_usd * margin_multiplier).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        selling_price_local = (cost_with_margin_usd * exchange_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         try:
             BookRepository.update(book, {"selling_price_local": selling_price_local})
@@ -282,9 +284,9 @@ class BookCalculatePriceView(APIView):
         response_payload = {
             "book_id": book.id,
             "cost_usd": float(cost_usd),
+            "margin_percentage": f"{self.MARGIN_PERCENTAGE}%",
+            "cost_with_margin_usd": float(cost_with_margin_usd),
             "exchange_rate": float(exchange_rate),
-            "cost_local": float(cost_local),
-            "margin_percentage": self.MARGIN_PERCENTAGE,
             "selling_price_local": float(selling_price_local),
             "currency": target_currency,
             "calculation_timestamp": timezone.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -297,7 +299,7 @@ class BookCalculatePriceView(APIView):
 
         return success_response(
             data=response_payload,
-            message="Precio de venta sugerido calculado y actualizado exitosamente",
+            message="Precio de venta sugerido en moneda local calculado y actualizado exitosamente",
             status_code=status.HTTP_200_OK,
             metadata=metadata,
         )
